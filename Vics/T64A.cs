@@ -11,11 +11,10 @@ using MelonLoader;
 using Reticle;
 using UnityEngine;
 using NWH.VehiclePhysics;
-using GHPC.Weaponry;
 
 namespace PactIncreasedLethality
 {
-    public class T64A
+    public class T64A : Module
     {
         static MelonPreferences_Entry<bool> t64_patch;
         static MelonPreferences_Entry<bool> super_engine;
@@ -25,7 +24,7 @@ namespace PactIncreasedLethality
         static MelonPreferences_Entry<bool> has_lrf;
         static MelonPreferences_Entry<bool> thermals;
         static MelonPreferences_Entry<string> thermals_quality;
-        static MelonPreferences_Entry<bool> lead_calculator_t64;
+        internal static MelonPreferences_Entry<bool> lead_calculator_t64;
         static MelonPreferences_Entry<bool> du_armour;
         static MelonPreferences_Entry<bool> better_stab;
         static MelonPreferences_Entry<bool> tpn3;
@@ -156,8 +155,8 @@ namespace PactIncreasedLethality
                     VehicleController this_vic_controller = vic_go.GetComponent<VehicleController>();
                     NwhChassis chassis = vic_go.GetComponent<NwhChassis>();
 
-                    Util.ShallowCopy(this_vic_controller.engine, Assets.abrams_vic_controller.engine);
-                    Util.ShallowCopy(this_vic_controller.transmission, Assets.abrams_vic_controller.transmission);
+                    Util.ShallowCopy(this_vic_controller.engine, SharedAssets.abrams_vic_controller.engine);
+                    Util.ShallowCopy(this_vic_controller.transmission, SharedAssets.abrams_vic_controller.transmission);
 
                     this_vic_controller.engine.vc = vic_go.GetComponent<VehicleController>();
                     this_vic_controller.transmission.vc = vic_go.GetComponent<VehicleController>();

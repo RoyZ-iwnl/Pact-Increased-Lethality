@@ -18,7 +18,7 @@ using Reticle;
 
 namespace PactIncreasedLethality
 {
-    public class T80
+    public class T80 : Module
     {
         static MelonPreferences_Entry<bool> t80_patch;
         static MelonPreferences_Entry<bool> super_engine;
@@ -58,8 +58,6 @@ namespace PactIncreasedLethality
         static ReticleMesh.CachedReticle reticle_cached;
 
         static WeaponSystemCodexScriptable gun_2a46m4;
-
-        private static bool assets_loaded = false;
 
         public static void Config(MelonPreferences_Category cfg)
         {
@@ -178,8 +176,8 @@ namespace PactIncreasedLethality
                     VehicleController this_vic_controller = vic_go.GetComponent<VehicleController>();
                     NwhChassis chassis = vic_go.GetComponent<NwhChassis>();
 
-                    Util.ShallowCopy(this_vic_controller.engine, Assets.abrams_vic_controller.engine);
-                    Util.ShallowCopy(this_vic_controller.transmission, Assets.abrams_vic_controller.transmission);
+                    Util.ShallowCopy(this_vic_controller.engine, SharedAssets.abrams_vic_controller.engine);
+                    Util.ShallowCopy(this_vic_controller.transmission, SharedAssets.abrams_vic_controller.transmission);
 
                     this_vic_controller.engine.vc = vic_go.GetComponent<VehicleController>();
                     this_vic_controller.transmission.vc = vic_go.GetComponent<VehicleController>();
@@ -412,9 +410,8 @@ namespace PactIncreasedLethality
             yield break;
         }
 
-        public static void LoadAssets()
+        public override void LoadStaticAssets()
         {
-            if (assets_loaded) return;
             if (!t80_patch.Value) return;
 
             gun_2a46m4 = ScriptableObject.CreateInstance<WeaponSystemCodexScriptable>();
@@ -550,8 +547,6 @@ namespace PactIncreasedLethality
             Kontakt1.Setup(turret_k1, turret_k1.parent);
 
             Util.SetupFLIRShaders(t80bv_full);
-
-            assets_loaded = true;
         }
 
         public static void Init()

@@ -14,17 +14,16 @@ using FMODUnity;
 using MelonLoader.Utils;
 using System.IO;
 using GHPC;
-using GHPC.Player;
 using GHPC.Equipment;
 using GHPC.Effects;
 using GHPC.Camera;
 using GHPC.Crew;
 using GHPC.Weaponry;
-using System;
+using System.Linq;
 
 namespace PactIncreasedLethality
 {
-    public class BMP2
+    public class BMP2 : Module
     {
         [HarmonyPatch(typeof(WeaponAudio), "FinalStartLoop")]
         public static class ReplaceSound
@@ -156,8 +155,6 @@ namespace PactIncreasedLethality
         static Mesh turret_only_thermals;
         static GameObject bmp2m_kit;
 
-        private static bool assets_loaded = false;
-
         public class MultiBarrelFix : MonoBehaviour {
             public AmmoFeed feed;
             public GameObject[] loaded_objects;
@@ -246,8 +243,8 @@ namespace PactIncreasedLethality
                 int rand = UnityEngine.Random.Range(1, 100);
                 bool is_zsu = zsu_conversion.Value && rand <= zsu_conversion_chance.Value;
 
-                AmmoClipCodexScriptable ap = use_3ubr8.Value ? Ammo_30mm.clip_codex_3ubr8 : Assets.clip_codex_3ubr6;
-                AmmoClipCodexScriptable he = use_3uof8.Value ? Ammo_30mm.clip_codex_3uof8 : Assets.clip_codex_3uor6;
+                AmmoClipCodexScriptable ap = use_3ubr8.Value ? Ammo_30mm.clip_codex_3ubr8 : Ammo_30mm.clip_codex_3ubr6;
+                AmmoClipCodexScriptable he = use_3uof8.Value ? Ammo_30mm.clip_codex_3uof8 : Ammo_30mm.clip_codex_3uor6;
 
                 if (super_fcs.Value)
                 {
@@ -261,6 +258,7 @@ namespace PactIncreasedLethality
                         gc.enabled = false;
                     }
 
+                    turret_smr.sharedMesh = turret_only_thermals;
                     SuperFCS.Add(day_optic, night_optic, vic.WeaponsManager.Weapons[2], main_gun_info, gc, vesna: true);
                 }
 
@@ -343,20 +341,6 @@ namespace PactIncreasedLethality
                         main_gun.FCS.WeaponAuthoritative = false;
                         main_gun.FCS.InertialCompensation = false;
                         main_gun.FCS.LaserAim = LaserAimMode.ImpactPoint;
-
-                        if (!reticleSO)
-                        {
-                            reticleSO = ScriptableObject.Instantiate(ReticleMesh.cachedReticles["BMP-2_BPK-1-42"].tree);
-                            reticleSO.name = "bmp2static";
-
-                            Util.ShallowCopy(reticle_cached, ReticleMesh.cachedReticles["BMP-2_BPK-1-42"]);
-                            reticle_cached.tree = reticleSO;
-
-                            ReticleTree.Angular angular = (reticle_cached.tree.planes[0].elements[1] as ReticleTree.Angular);
-                            angular.align = ReticleTree.GroupBase.Alignment.Impact;
-                            angular.elements.RemoveRange(0, 3);
-                            (angular.elements[1] as ReticleTree.Angular).align = ReticleTree.GroupBase.Alignment.Boresight;
-                        }
 
                         day_optic.reticleMesh.reticleSO = reticleSO;
                         day_optic.reticleMesh.reticle = reticle_cached;
@@ -573,7 +557,22 @@ namespace PactIncreasedLethality
             yield break;
         }
 
-        public static void LRFReticle() {
+        public static void ZSUReticle() 
+        {
+            reticleSO = ScriptableObject.Instantiate(ReticleMesh.cachedReticles["BMP-2_BPK-1-42"].tree);
+            reticleSO.name = "bmp2static";
+
+            Util.ShallowCopy(reticle_cached, ReticleMesh.cachedReticles["BMP-2_BPK-1-42"]);
+            reticle_cached.tree = reticleSO;
+
+            ReticleTree.Angular angular = (reticle_cached.tree.planes[0].elements[1] as ReticleTree.Angular);
+            angular.align = ReticleTree.GroupBase.Alignment.Impact;
+            angular.elements.RemoveRange(0, 3);
+            (angular.elements[1] as ReticleTree.Angular).align = ReticleTree.GroupBase.Alignment.Boresight;
+        }
+
+        public static void LRFReticle() 
+        {
             reticleSO_lrf = ScriptableObject.Instantiate(ReticleMesh.cachedReticles["BMP-2_BPK-1-42"].tree);
             reticleSO_lrf.name = "bmp2_lrf_ac";
 
@@ -645,35 +644,37 @@ namespace PactIncreasedLethality
             }
         }
 
-
-        public static void LoadAssets()
+        public override void UnloadDynamicAssets()
         {
-            if (assets_loaded) return;
+            Material.DestroyImmediate(brdm_nsv_barrel_mat);
+            Mesh.DestroyImmediate(brdm_nsv_barrel_mesh);
+            GameObject.DestroyImmediate(zsu_full);
+            GameObject.DestroyImmediate(zsu_barrel);
+            ScriptableObject.DestroyImmediate(reticleSO_lrf);
+            ScriptableObject.DestroyImmediate(reticleSO);
+        }
 
-            AssetBundle bmp2m_bundle = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/PIL", "bmp2m"));
-            turret_no_smokes = bmp2m_bundle.LoadAsset<Mesh>("bmp2_no_smokes.asset");
-            turret_no_smokes.hideFlags = HideFlags.DontUnloadUnusedAsset;
+        public override void LoadDynamicAssets()
+        {
+            string[] bmp2s = { "BMP2 Soviet", "BMP2" };
+            if (!AssetUtil.VehicleInMission(bmp2s)) return;
 
-            bmp2m_turret = bmp2m_bundle.LoadAsset<Mesh>("bmp2m_turret.asset");
-            bmp2m_turret.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            AmmoClipCodexScriptable[] clip_codex_scriptables = Resources.FindObjectsOfTypeAll<AmmoClipCodexScriptable>();
+            AmmoCodexScriptable[] codex_scriptables = Resources.FindObjectsOfTypeAll<AmmoCodexScriptable>();
+            AmmoType ammo_9m113 = codex_scriptables.Where(o => o.name == "ammo_9M113").FirstOrDefault().AmmoType;
 
-            turret_only_thermals = bmp2m_bundle.LoadAsset<Mesh>("turret_thermals_only.asset");
-            turret_only_thermals.hideFlags = HideFlags.DontUnloadUnusedAsset;
-
-            bmp2m_kit = bmp2m_bundle.LoadAsset<GameObject>("BMP2M_KIT.prefab");
-            bmp2m_kit.hideFlags = HideFlags.DontUnloadUnusedAsset;
-
-            Util.SetupFLIRShaders(bmp2m_kit);
+            LRFReticle();
+            ZSUReticle();
 
             ammo_9m113_as = new AmmoType();
-            Util.ShallowCopy(ammo_9m113_as, Assets.ammo_9m113);
+            Util.ShallowCopy(ammo_9m113_as, ammo_9m113);
             ammo_9m113_as.Name = "9M113AS Konkurs";
             ammo_9m113_as.Category = AmmoType.AmmoCategory.Explosive;
             ammo_9m113_as.RhaPenetration = 10f;
             ammo_9m113_as.NoisePowerX = 0f;
             ammo_9m113_as.NoisePowerY = 0f;
 
-            ammo_codex_9m113_as = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_9m113_as);
             ammo_codex_9m113_as.AmmoType = ammo_9m113_as;
             ammo_codex_9m113_as.name = "ammo_9m113_as";
 
@@ -683,7 +684,7 @@ namespace PactIncreasedLethality
             clip_9m113_as.MinimalPattern = new AmmoCodexScriptable[] { ammo_codex_9m113_as };
             clip_9m113_as.MinimalPattern[0] = ammo_codex_9m113_as;
 
-            clip_codex_9m113_as = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
+            Util.Coalesce(ref clip_codex_9m113_as);
             clip_codex_9m113_as.name = "clip_9m113_as";
             clip_codex_9m113_as.ClipType = clip_9m113_as;
 
@@ -702,7 +703,7 @@ namespace PactIncreasedLethality
             //////////////////////
 
             ammo_9m133 = new AmmoType();
-            Util.ShallowCopy(ammo_9m133, Assets.ammo_9m113);
+            Util.ShallowCopy(ammo_9m133, ammo_9m113);
             ammo_9m133.Name = "9M133 Kornet";
             ammo_9m133.Category = AmmoType.AmmoCategory.ShapedCharge;
             ammo_9m133.RhaPenetration = 1200f;
@@ -715,7 +716,7 @@ namespace PactIncreasedLethality
             ammo_9m133.SectionalArea = 0.018146f;
             ammo_9m133.Guidance = AmmoType.GuidanceType.Laser;
 
-            ammo_codex_9m133 = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_9m133);
             ammo_codex_9m133.AmmoType = ammo_9m133;
             ammo_codex_9m133.name = "ammo_9m133";
 
@@ -725,14 +726,14 @@ namespace PactIncreasedLethality
             clip_9m133.MinimalPattern = new AmmoCodexScriptable[] { ammo_codex_9m133 };
             clip_9m133.MinimalPattern[0] = ammo_codex_9m133;
 
-            clip_codex_9m133 = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
+            Util.Coalesce(ref clip_codex_9m133);
             clip_codex_9m133.name = "clip_9m133";
             clip_codex_9m133.ClipType = clip_9m133;
 
             /////////////////////
 
             ammo_apds = new AmmoType();
-            Util.ShallowCopy(ammo_apds, Assets.ammo_3ubr6);
+            Util.ShallowCopy(ammo_apds, Ammo_30mm.ammo_3ubr6);
             ammo_apds.Name = "23mm APDS-T";
             ammo_apds.Mass = 0.190f;
             ammo_apds.MuzzleVelocity = 1120f;
@@ -741,12 +742,12 @@ namespace PactIncreasedLethality
             ammo_apds.Coeff = 0.012f;
             ammo_apds.SectionalArea = 0.0005f;
 
-            ammo_codex_apds = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_apds);
             ammo_codex_apds.AmmoType = ammo_apds;
             ammo_codex_apds.name = "ammo_apds";
 
             ammo_bzt = new AmmoType();
-            Util.ShallowCopy(ammo_bzt, Assets.ammo_3ubr6);
+            Util.ShallowCopy(ammo_bzt, Ammo_30mm.ammo_3ubr6);
             ammo_bzt.Name = "23mm BZT";
             ammo_bzt.Mass = 0.190f;
             ammo_bzt.MuzzleVelocity = 970f;
@@ -755,7 +756,7 @@ namespace PactIncreasedLethality
             ammo_bzt.Coeff = 0.012f;
             ammo_bzt.SectionalArea = 0.0005f;
 
-            ammo_codex_bzt = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_bzt);
             ammo_codex_bzt.AmmoType = ammo_bzt;
             ammo_codex_bzt.name = "ammo_bzt";
 
@@ -766,14 +767,14 @@ namespace PactIncreasedLethality
                 ammo_codex_apds,
             };
 
-            clip_codex_bzt = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
+            Util.Coalesce(ref clip_codex_bzt);
             clip_codex_bzt.name = "clip_bzt";
             clip_codex_bzt.ClipType = clip_bzt;
 
             ////////////////////
 
             ammo_ofzt = new AmmoType();
-            Util.ShallowCopy(ammo_ofzt, Assets.ammo_3uor6);
+            Util.ShallowCopy(ammo_ofzt, Ammo_30mm.ammo_3uor6);
             ammo_ofzt.Name = "23mm OFZT";
             ammo_ofzt.UseTracer = true;
             ammo_ofzt.TntEquivalentKg = 0.020f;
@@ -782,12 +783,12 @@ namespace PactIncreasedLethality
             ammo_ofzt.Coeff = 0.012f;
             ammo_ofzt.SectionalArea = 0.0005f;
 
-            ammo_codex_ofzt = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_ofzt);
             ammo_codex_ofzt.AmmoType = ammo_ofzt;
             ammo_codex_ofzt.name = "ammo_ofzt";
 
             ammo_ofz = new AmmoType();
-            Util.ShallowCopy(ammo_ofz, Assets.ammo_3uor6);
+            Util.ShallowCopy(ammo_ofz, Ammo_30mm.ammo_3uor6);
             ammo_ofz.Name = "23mm OFZ";
             ammo_ofz.UseTracer = false;
             ammo_ofz.TntEquivalentKg = 0.025f;
@@ -796,7 +797,7 @@ namespace PactIncreasedLethality
             ammo_ofz.Coeff = 0.012f;
             ammo_ofz.SectionalArea = 0.0005f;
 
-            ammo_codex_ofz = ScriptableObject.CreateInstance<AmmoCodexScriptable>();
+            Util.Coalesce(ref ammo_codex_ofz);
             ammo_codex_ofz.AmmoType = ammo_ofz;
             ammo_codex_ofz.name = "ammo_ofz";
 
@@ -811,16 +812,15 @@ namespace PactIncreasedLethality
                 ammo_codex_ofz,
             };
 
-            clip_codex_ofz = ScriptableObject.CreateInstance<AmmoClipCodexScriptable>();
+            Util.Coalesce(ref clip_codex_ofz);
             clip_codex_ofz.name = "clip_ofz";
             clip_codex_ofz.ClipType = clip_ofz;
 
-            GameObject rig = Assets.BRDM2.transform.Find("BRDM2_1983 (1)/BRDM_hull_1983").gameObject;
-            SkinnedMeshRenderer rig_renderer = rig.GetComponent<SkinnedMeshRenderer>();
+            SkinnedMeshRenderer rig_renderer = SharedAssets.brdm2_hull.GetComponent<SkinnedMeshRenderer>();
 
             brdm_nsv_barrel_mat = Material.Instantiate(rig_renderer.sharedMaterial);
             brdm_nsv_barrel_mesh = Mesh.Instantiate(rig_renderer.sharedMesh);
-           
+
             zsu_barrel = new GameObject("zsu");
             Transform barrel_transform = GameObject.Instantiate(new GameObject("barrel"), zsu_barrel.transform).transform;
             SkinnedMeshRenderer rend = zsu_barrel.AddComponent<SkinnedMeshRenderer>();
@@ -856,16 +856,32 @@ namespace PactIncreasedLethality
                 barrel.transform.localEulerAngles = rots[i];
                 barrel.transform.localPosition = pos[i];
             }
+        }
+
+        public override void LoadStaticAssets()
+        {
+            if (!bmp2_patch.Value) return;
+
+            AssetBundle bmp2m_bundle = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/PIL", "bmp2m"));
+            turret_no_smokes = bmp2m_bundle.LoadAsset<Mesh>("bmp2_no_smokes.asset");
+            turret_no_smokes.hideFlags = HideFlags.DontUnloadUnusedAsset;
+
+            bmp2m_turret = bmp2m_bundle.LoadAsset<Mesh>("bmp2m_turret.asset");
+            bmp2m_turret.hideFlags = HideFlags.DontUnloadUnusedAsset;
+
+            turret_only_thermals = bmp2m_bundle.LoadAsset<Mesh>("turret_thermals_only.asset");
+            turret_only_thermals.hideFlags = HideFlags.DontUnloadUnusedAsset;
+
+            bmp2m_kit = bmp2m_bundle.LoadAsset<GameObject>("BMP2M_KIT.prefab");
+            bmp2m_kit.hideFlags = HideFlags.DontUnloadUnusedAsset;
+
+            Util.SetupFLIRShaders(bmp2m_kit);
 
             weapon_2a7m = ScriptableObject.CreateInstance<WeaponSystemCodexScriptable>();
             weapon_2a7m.name = "gun_2a7m";
             weapon_2a7m.CaliberMm = 23;
             weapon_2a7m.FriendlyName = "23mm guns 2A7M";
             weapon_2a7m.Type = WeaponSystemCodexScriptable.WeaponType.Autocannon;
-
-            LRFReticle();
-
-            assets_loaded = true;
         }
 
         public static void Init()

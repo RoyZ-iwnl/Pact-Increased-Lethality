@@ -10,12 +10,10 @@ using GHPC;
 using MelonLoader;
 using UnityEngine;
 using NWH.VehiclePhysics;
-using static PactIncreasedLethality.T80;
-using GHPC.Weaponry;
 
 namespace PactIncreasedLethality
 {
-    public class T64B
+    public class T64B : Module
     {
         static MelonPreferences_Entry<bool> t64_patch;
         static MelonPreferences_Entry<bool> super_engine;
@@ -119,8 +117,8 @@ namespace PactIncreasedLethality
                     VehicleController this_vic_controller = vic_go.GetComponent<VehicleController>();
                     NwhChassis chassis = vic_go.GetComponent<NwhChassis>();
 
-                    Util.ShallowCopy(this_vic_controller.engine, Assets.abrams_vic_controller.engine);
-                    Util.ShallowCopy(this_vic_controller.transmission, Assets.abrams_vic_controller.transmission);
+                    Util.ShallowCopy(this_vic_controller.engine, SharedAssets.abrams_vic_controller.engine);
+                    Util.ShallowCopy(this_vic_controller.transmission, SharedAssets.abrams_vic_controller.transmission);
 
                     this_vic_controller.engine.vc = vic_go.GetComponent<VehicleController>();
                     this_vic_controller.transmission.vc = vic_go.GetComponent<VehicleController>();

@@ -21,11 +21,15 @@ namespace PactIncreasedLethality
                 return true;
             }
 
+            if (__instance._laserDestroyed)
+            {
+                return true;
+            }
+
             __instance._laseQueued = false;
 
             float num = -1f;
-            int visibilityOnlyLayer = LayerMask.NameToLayer("VisibilityOnly");
-            int layerMask = visibilityOnlyLayer >= 0 ? (1 << visibilityOnlyLayer) : 0;
+            int layerMask = 1 << CodeUtils.LAYER_INDEX_VISIBILITYONLY;
 
             RaycastHit raycastHit;
             if (Physics.Raycast(__instance.LaserOrigin.position, __instance.LaserOrigin.forward, out raycastHit, __instance.MaxLaserRange, layerMask) && raycastHit.collider.tag == "Smoke")

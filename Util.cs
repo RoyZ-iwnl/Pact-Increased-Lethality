@@ -5,12 +5,14 @@ using GHPC.Equipment.Optics;
 using GHPC.Weapons;
 using GHPC.Thermals;
 using UnityEngine;
+using GHPC.Mission;
 
 namespace PactIncreasedLethality
 {
     public class AlreadyConverted : MonoBehaviour
     {
-        void Awake() {
+        void Awake() 
+        {
             enabled = false;
         }
     }
@@ -25,6 +27,12 @@ namespace PactIncreasedLethality
             "t64_menu"
         };
 
+        // ??= doesn't exist in this version of C#
+        public static void Coalesce<T>(ref T obj) where T : new() {
+            if (obj != null) return;
+            obj = new T();
+        }
+
         public static T[] AppendToArray<T>(T[] array, T new_item)
         {
             List<T> values = new List<T>();
@@ -38,7 +46,7 @@ namespace PactIncreasedLethality
             return values.ToArray();
         }
 
-        public static void SetupFLIRShaders(GameObject parent) {
+        public static void SetupFLIRShaders(GameObject parent, float heat = 0.55f) {
             foreach (MeshRenderer mrend in parent.GetComponentsInChildren<MeshRenderer>(includeInactive: false))
             {
                 foreach (Material mat in mrend.materials)
@@ -48,7 +56,7 @@ namespace PactIncreasedLethality
             }
 
             HeatSource src = parent.AddComponent<HeatSource>();
-            src.heat = 5f;
+            src.heat = heat;
         }
 
         public static void ShallowCopy(System.Object dest, System.Object src)

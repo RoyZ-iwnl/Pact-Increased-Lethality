@@ -22,7 +22,7 @@ using GHPC.Mission.Data;
 
 namespace PactIncreasedLethality
 {
-    public class T72
+    public class T72 : Module
     {
         static MelonPreferences_Entry<bool> t72_patch;
         static MelonPreferences_Entry<string> t72m_ammo_type;
@@ -61,8 +61,8 @@ namespace PactIncreasedLethality
         static MelonPreferences_Entry<bool> super_fcs_t72m;
         static MelonPreferences_Entry<bool> super_fcs_t72m1;
 
-        static MelonPreferences_Entry<bool> lead_calculator_t72m;
-        static MelonPreferences_Entry<bool> lead_calculator_t72m1;
+        internal static MelonPreferences_Entry<bool> lead_calculator_t72m;
+        internal static MelonPreferences_Entry<bool> lead_calculator_t72m1;
 
         static MelonPreferences_Entry<bool> tpn3_t72m;
         static MelonPreferences_Entry<bool> tpn3_t72m1;
@@ -107,7 +107,7 @@ namespace PactIncreasedLethality
         static Mesh t72b_k5_hull_mesh;
         static Mesh t72b3ubh_turret_mesh;
 
-        private static bool assets_loaded = false;
+        static GameObject soviet_crew_voice;
 
         public static void Config(MelonPreferences_Category cfg)
         {
@@ -264,7 +264,7 @@ namespace PactIncreasedLethality
                     vic._friendlyName = vic.FriendlyName == "KPz T-72M1" ? "T-72A" : "T-72";
 
                     vic.transform.Find("DE Tank Voice").gameObject.SetActive(false);
-                    GameObject crew_voice = GameObject.Instantiate(Assets.soviet_crew_voice, vic.transform);
+                    GameObject crew_voice = GameObject.Instantiate(soviet_crew_voice, vic.transform);
                     crew_voice.transform.localPosition = new Vector3(0, 0, 0);
                     crew_voice.transform.localEulerAngles = new Vector3(0, 0, 0);
                     CrewVoiceHandler handler = crew_voice.GetComponent<CrewVoiceHandler>();
@@ -305,7 +305,7 @@ namespace PactIncreasedLethality
                         loadout_manager.LoadedAmmoList.AmmoClips[0] = Ammo_125mm.ap[ammo_str];
 
                     if (heat_str == "3BK18M")
-                        loadout_manager.LoadedAmmoList.AmmoClips[1] = Assets.clip_codex_3bk18m;
+                        loadout_manager.LoadedAmmoList.AmmoClips[1] = SharedAssets.clip_codex_3bk18m;
 
                     if (atgm_str != "None")
                         loadout_manager.LoadedAmmoList.AmmoClips = Util.AppendToArray(loadout_manager.LoadedAmmoList.AmmoClips, Ammo_125mm.atgm[atgm_str]);
@@ -346,7 +346,8 @@ namespace PactIncreasedLethality
                     {
                         var to_empty = vic.UniqueName == "T72M" ? empty_ammo_t72m.Value : empty_ammo_t72m1.Value;
 
-                        foreach (string rack in to_empty) {
+                        foreach (string rack in to_empty) 
+                        {
                             int idx = ammo_racks[rack];
                             Util.EmptyRack(loadout_manager.RackLoadouts[idx].Rack);
                         }
@@ -412,7 +413,8 @@ namespace PactIncreasedLethality
                     late_follow.Find("ARMOR/Night Sight Glass").gameObject.SetActive(false);
                     late_follow.Find("ARMOR/NightSight Housing").gameObject.SetActive(false);
                 }
-                else {
+                else 
+                {
                     BOM.Add(day_optic.transform);
                 }
 
@@ -421,8 +423,8 @@ namespace PactIncreasedLethality
                     VehicleController this_vic_controller = vic_go.GetComponent<VehicleController>();
                     NwhChassis chassis = vic_go.GetComponent<NwhChassis>();
 
-                    Util.ShallowCopy(this_vic_controller.engine, Assets.abrams_vic_controller.engine);
-                    Util.ShallowCopy(this_vic_controller.transmission, Assets.abrams_vic_controller.transmission);
+                    Util.ShallowCopy(this_vic_controller.engine, SharedAssets.abrams_vic_controller.engine);
+                    Util.ShallowCopy(this_vic_controller.transmission, SharedAssets.abrams_vic_controller.transmission);
 
                     this_vic_controller.engine.vc = vic_go.GetComponent<VehicleController>();
                     this_vic_controller.transmission.vc = vic_go.GetComponent<VehicleController>();
@@ -454,7 +456,8 @@ namespace PactIncreasedLethality
                         turret_mesh = has_sosna? t72av_sosna_turret : t72av_turret;
                     }
 
-                    if (has_reflective_plates || has_k5) {
+                    if (has_reflective_plates || has_k5) 
+                    {
                         if (has_k1) kontakt_prefab = t72b_k1_full;
 
                         if (has_k5) kontakt_prefab = t72b_k5_1989_full;
@@ -666,6 +669,12 @@ namespace PactIncreasedLethality
                         if (has_k1 && has_sosna && has_reflective_plates) name = "T-72B1MS";
                         if (name == "T-72B3" && has_ubh) name = "T-72B3M";
 
+                        if (has_k5 || has_k1) 
+                        {
+                            vic.transform.Find("---MESH---/HULL/t72m hull net").gameObject.SetActive(false);
+                            vic.transform.Find("---MESH---/HULL/TURRET/t72m turret net").gameObject.SetActive(false);
+                        }
+
                         vic._friendlyName = name;
                     }
                 }
@@ -702,9 +711,22 @@ namespace PactIncreasedLethality
             }
         }
 
-        public static void LoadAssets() 
+        public override void LoadDynamicAssets()
         {
-            if (assets_loaded) return;
+            if (!t72_patch.Value) return;
+
+            string[] t72s = { "T72M", "T72M1" };
+            if (!AssetUtil.VehicleInMission(t72s)) return;
+
+            if (soviet_t72m.Value || soviet_t72m1.Value)
+            {
+                Vehicle t80b = AssetUtil.LoadVanillaVehicle("T80B");
+                soviet_crew_voice = t80b.GetComponentInChildren<CrewVoiceHandler>().gameObject;
+            }
+        }
+
+        public override void LoadStaticAssets()
+        {
             if (!t72_patch.Value) return;
 
             AssetBundle t72b_bundle = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/PIL", "t72b"));
@@ -886,8 +908,6 @@ namespace PactIncreasedLethality
             sosna_shield_armor._name = "shield";
             sosna_shield_armor.PrimaryHeatRha = 15f;
             sosna_shield_armor.PrimarySabotRha = 15f;
-
-            assets_loaded = true;
         }
 
         public static void Init()
