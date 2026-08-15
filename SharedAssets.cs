@@ -6,6 +6,7 @@ using NWH.VehiclePhysics;
 using Reticle;
 using TMPro;
 using UnityEngine;
+using ModUtil;
 
 namespace PactIncreasedLethality
 {
@@ -35,6 +36,8 @@ namespace PactIncreasedLethality
 
         internal static Material t80b_mat;
         internal static TMP_FontAsset sov_7_segment_font;
+
+        internal static GameObject tow_front_blast;
 
         public override void LoadStaticAssets()
         {
@@ -68,6 +71,7 @@ namespace PactIncreasedLethality
 
             Vehicle m2_bradley = AssetUtil.LoadVanillaVehicle("M2BRADLEY");
             m2_bradley_canvas = m2_bradley.transform.Find("FCS and sights/GPS Optic/M2 Bradley GPS canvas").gameObject;
+            tow_front_blast = m2_bradley.transform.Find("Gun Scripts/Launcher M2 TOW/muzzle effects L/TOW Front FX").gameObject;
 
             Vehicle t80b = AssetUtil.LoadVanillaVehicle("T80B");
             t80b_canvas = t80b.transform.Find("---MAIN GUN SCRIPTS---/2A46-2/1G42 gunner's sight/GPS/1G42 Canvas").gameObject;

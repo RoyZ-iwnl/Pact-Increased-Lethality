@@ -1,18 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using GHPC.Camera;
 using GHPC.Equipment.Optics;
-using GHPC.Vehicle;
-using GHPC.Weaponry;
 using GHPC.Weapons;
 using MelonLoader.Utils;
 using Reticle;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 using UnityEngine.UI;
 using static Reticle.ReticleTree;
+using ModUtil;
 
 namespace PactIncreasedLethality
 {
@@ -353,7 +349,7 @@ namespace PactIncreasedLethality
             white_flir_mat_no_scope.EnableKeyword("_FLIR_POLARITY");
 
             thermal_canvas = GameObject.Instantiate(SharedAssets.m2_bradley_canvas);
-            GameObject.Destroy(thermal_canvas.transform.GetChild(2).gameObject);
+            GameObject.DestroyImmediate(thermal_canvas.transform.Find("HUD elements").gameObject);
             thermal_canvas.SetActive(false);
             thermal_canvas.hideFlags = HideFlags.DontUnloadUnusedAsset;
             thermal_canvas.name = "pact thermal canvas";

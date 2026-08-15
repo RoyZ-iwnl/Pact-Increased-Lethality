@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace PactIncreasedLethality
 {
@@ -13,5 +8,10 @@ namespace PactIncreasedLethality
         public Material destroyed_mat;
         public bool hide_on_detonate = true;
         public string destroyed_target;
+
+        void Awake()
+        {
+            this.enabled = false;
+        }
     }
 }

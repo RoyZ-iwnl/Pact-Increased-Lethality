@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using GHPC.Mission;
 using GHPC.Vehicle;
 using UnityEngine.AddressableAssets;
 
-namespace PactIncreasedLethality
+namespace ModUtil
 {
     internal class AssetUtil
     {
@@ -78,4 +78,3 @@ namespace PactIncreasedLethality
         }
     }
 }
-

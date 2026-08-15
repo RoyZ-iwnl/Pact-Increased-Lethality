@@ -1,6 +1,7 @@
-﻿namespace PactIncreasedLethality
+﻿namespace ModUtil
 {
-    public class Module {
+    public class Module
+    {
         private bool static_assets_loaded = false;
         private bool dynamic_assets_loaded = false;
 
@@ -37,12 +38,12 @@
             return true;
         }
 
-        public virtual void LoadStaticAssets() {}
-        public virtual void LoadDynamicAssets() {}
+        public virtual void LoadStaticAssets() { }
+        public virtual void LoadDynamicAssets() { }
 
         // ASSETS THAT ARE INSTANTIATED DYNAMICALLY 
         // I.E. USING Object.Instantiate
         // MUST BE DESTROYED!
-        public virtual void UnloadDynamicAssets() {}
+        public virtual void UnloadDynamicAssets() { }
     }
 }

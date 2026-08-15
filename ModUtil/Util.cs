@@ -1,15 +1,16 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using GHPC;
 using GHPC.Equipment.Optics;
 using GHPC.Weapons;
 using GHPC.Thermals;
 using UnityEngine;
-using GHPC.Mission;
+using GHPC.Effects;
 
-namespace PactIncreasedLethality
+namespace ModUtil
 {
-    public class AlreadyConverted : MonoBehaviour
+    public sealed class AlreadyConverted : MonoBehaviour
     {
         void Awake() 
         {
@@ -17,8 +18,10 @@ namespace PactIncreasedLethality
         }
     }
 
-    public class Util
+    public sealed class Util
     {
+        public static ImpactEffectsDatabaseScriptable impact_fx_db;
+
         public static string[] menu_screens = new string[] {
             "MainMenu2_Scene",
             "MainMenu2-1_Scene",
@@ -27,10 +30,30 @@ namespace PactIncreasedLethality
             "t64_menu"
         };
 
-        // ??= doesn't exist in this version of C#
-        public static void Coalesce<T>(ref T obj) where T : new() {
-            if (obj != null) return;
-            obj = new T();
+        public static void CacheAmmo(AmmoType ammo)
+        {
+            if (impact_fx_db == null)
+            {
+                impact_fx_db = Resources.FindObjectsOfTypeAll<ImpactEffectsDatabaseScriptable>()[0];
+            }
+
+            int id;
+            ImpactDecalsManager.Instance._ImpactDecalsScriptable.CacheNewData(ammo, out id);
+            impact_fx_db.CacheNewData(ammo, out id);
+            ammo.CachedIndex = id;
+        }
+
+        public static void CreateUniformArmour(GameObject go, string name, float rha_sabot, float rha_heat, ArmorCodexScriptable codex = null) {
+            UniformArmor component = go.AddComponent<UniformArmor>();
+            go.tag = "Penetrable";
+            go.layer = 8;
+            component.SetName(name);
+            component.PrimaryHeatRha = rha_heat;
+            component.PrimarySabotRha = rha_sabot;
+
+            if (codex != null) {
+                component._armorType = codex;
+            }
         }
 
         public static T[] AppendToArray<T>(T[] array, T new_item)
@@ -46,8 +69,15 @@ namespace PactIncreasedLethality
             return values.ToArray();
         }
 
-        public static void SetupFLIRShaders(GameObject parent, float heat = 0.55f) {
-            foreach (MeshRenderer mrend in parent.GetComponentsInChildren<MeshRenderer>(includeInactive: false))
+        public static void Coalesce<T>(ref T obj) where T : new()
+        {
+            if (obj != null) return;
+            obj = new T();
+        }
+
+        public static void SetupFLIRShaders(GameObject parent)
+        {
+            foreach (MeshRenderer mrend in parent.GetComponentsInChildren<MeshRenderer>())
             {
                 foreach (Material mat in mrend.materials)
                 {
@@ -56,7 +86,7 @@ namespace PactIncreasedLethality
             }
 
             HeatSource src = parent.AddComponent<HeatSource>();
-            src.heat = heat;
+            src.heat = 0.4f;
         }
 
         public static void ShallowCopy(System.Object dest, System.Object src)
@@ -110,4 +140,3 @@ namespace PactIncreasedLethality
         }
     }
 }
-

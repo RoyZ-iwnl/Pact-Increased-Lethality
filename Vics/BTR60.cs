@@ -12,11 +12,14 @@ using GHPC.Weapons;
 using Reticle;
 using GHPC.Equipment.Optics;
 using GHPC;
-using GHPC.Thermals;
 using GHPC.Camera;
 using UnityEngine.Rendering.PostProcessing;
 using GHPC.Effects;
 using GHPC.Weaponry;
+using ModUtil;
+using FMOD;
+using FMODUnity;
+using HarmonyLib;
 
 namespace PactIncreasedLethality
 {
@@ -36,6 +39,59 @@ namespace PactIncreasedLethality
         static MelonPreferences_Entry<bool> use_3uof8;
         static MelonPreferences_Entry<bool> stab;
 
+
+        [HarmonyPatch(typeof(WeaponAudio), "FinalStartLoop")]
+        public static class ReplaceSound
+        {
+            public static FMOD.Sound sound_exterior;
+            public static FMOD.Sound sound_interior;
+
+            public static bool Prefix(WeaponAudio __instance)
+            {
+                if (__instance.SingleShotMode && __instance.SingleShotEventPaths[0].Contains("actually_2a72"))
+                {
+                    var corSystem = RuntimeManager.CoreSystem;
+
+                    Vector3 vec = __instance.transform.position;
+
+                    VECTOR pos = new VECTOR();
+                    pos.x = vec.x;
+                    pos.y = vec.y;
+                    pos.z = vec.z;
+
+                    VECTOR vel = new VECTOR();
+                    vel.x = 0f;
+                    vel.y = 0f;
+                    vel.z = 0f;
+
+                    bool is_player_instance = __instance == Mod.player_manager.CurrentPlayerWeapon.Weapon.WeaponSound;
+                    bool interior = !CameraManager._instance.ExteriorMode && is_player_instance;
+
+                    FMOD.Channel new_channel;
+                    FMOD.Sound sound = interior ? sound_interior : sound_exterior;
+
+                    corSystem.playSound(sound, Mod.audio_channel_group, true, out new_channel);
+
+                    float game_vol = Mod.audio_settings_manager._previousVolume;
+                    float gun_vol = interior ? game_vol * 1.1f : game_vol * 0.80f;
+
+                    if (!is_player_instance && !CameraManager._instance.ExteriorMode)
+                    {
+                        gun_vol *= 0.5f;
+                    }
+
+                    new_channel.setVolume(gun_vol);
+                    new_channel.set3DAttributes(ref pos, ref vel);
+                    new_channel.setPaused(false);
+                    new_channel.clearHandle();
+
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
         public static void Config(MelonPreferences_Category cfg)
         {
             btr60_patch = cfg.CreateEntry<bool>("BTR-60 Patch", true);
@@ -49,151 +105,159 @@ namespace PactIncreasedLethality
             use_3uof8.Comment = "Mixed belt of 3UOR6 and 3UOF8 (1:2); 3UOF8 has more explosive filler but no tracer";
         }
 
+        private static void HandleConversion(Vehicle vic)
+        {
+            GameObject vic_go = vic.gameObject;
+
+            if (vic == null) return;
+            if (!vic.UniqueName.Contains("BTR60PB")) return;
+
+            WeaponSystemInfo weapon_info = vic.WeaponsManager.Weapons[0];
+            WeaponSystem weapon = weapon_info.Weapon;
+            AmmoFeed feed = weapon.Feed;
+
+            if (autocannon.Value)
+            {
+                vic._friendlyName = "BTR-60A";
+                vic.GetComponent<Rigidbody>().mass += 1500f;
+
+                SkinnedMeshRenderer mesh_rend = vic.transform.Find("btr60_rig/lp_hull002").GetComponent<SkinnedMeshRenderer>();
+                Matrix4x4[] bindposes = mesh_rend.sharedMesh.bindposes;
+                bindposes[3] = Matrix4x4.zero;
+                bindposes[4] = Matrix4x4.zero;
+                bindposes[5] = Matrix4x4.zero;
+                bindposes[6] = Matrix4x4.zero;
+                mesh_rend.sharedMesh.bindposes = bindposes;
+
+                if (vic.transform.Find("btr60_rig/HULL/TURRET/Object266"))
+                    vic.transform.Find("btr60_rig/HULL/TURRET/Object266").gameObject.SetActive(false);
+                vic.transform.Find("btr60_rig/HULL/TURRET/tyre_on_head").gameObject.SetActive(false);
+                vic.transform.Find("btr60_rig/HULL/commander scope").transform.localScale = Vector3.zero;
+                vic.transform.Find("transforms/commander head").transform.localPosition = new Vector3(0.355f, 2.5692f, 1.933f);
+
+                Transform btr_gun = vic.transform.Find("btr60_rig/HULL/TURRET/GUN");
+
+                GameObject full_turret = GameObject.Instantiate(btr60a_turret_complete);
+                GameObject turret = full_turret.transform.Find("BTR_80_B").gameObject;
+                GameObject gun = full_turret.transform.Find("BTR_80_C").gameObject;
+                LateFollow turret_late_follow = vic.transform.Find("btr60_rig/HULL/TURRET").GetComponent<LateFollowTarget>()._lateFollowers[0];
+
+                turret_late_follow.transform.Find("turret_sides_7mm").gameObject.SetActive(false);
+                btr_gun.Find("MG_KPVT-1_Breach").gameObject.SetActive(false);
+
+                Reparent turret_reparent = full_turret.AddComponent<Reparent>();
+                turret_reparent.NewParent = turret_late_follow.transform;
+                turret_reparent.Awake();
+                full_turret.transform.localPosition = new Vector3(-0.0709f, 0.97f, 0.2436f);
+                full_turret.transform.localEulerAngles = Vector3.zero;
+                turret.transform.localEulerAngles = new Vector3(270f, 0f, 0f);
+
+                Reparent gun_reparent = gun.AddComponent<Reparent>();
+                gun_reparent.NewParent = btr_gun.GetComponent<LateFollowTarget>()._lateFollowers[0].transform;
+                gun_reparent.Awake();
+                gun.transform.localPosition = new Vector3(-0.0809f, 2.6379f, 1.0495f);
+                gun.transform.localEulerAngles = new Vector3(270f, 0f, 0f);
+
+                // pivot point gets all messed up 
+                btr_gun.localPosition = new Vector3(-0.0181f, 0.1099f, -0.6041f);
+                btr_gun.Find("Gun Aimable/gunner sight").transform.localPosition = new Vector3(-0.2186f, 2.3638f, 2.0156f);
+
+                Transform kpvt = btr_gun.Find("gun_recoil/14.5mm Machine Gun KPVT");
+                Transform kpvt_mflash = kpvt.Find("KPVT Muzzle Flash");
+
+                kpvt.localPosition = new Vector3(0.0151f, 0.2184f, 2.9388f);
+                kpvt_mflash.localPosition = new Vector3(0f, 0f, -0.9782f);
+                kpvt_mflash.Find("Gunsmoke Booster").gameObject.SetActive(false);
+                btr_gun.Find("pkt/7.62mm Machine Gun PKT").transform.localPosition = new Vector3(0.3045f, 0.3216f, 0.5704f);
+                btr_gun.Find("Gun Aimable/ejection").transform.localPosition = new Vector3(-0.1397f, 2.6567f, 1.3654f);
+                btr_gun.Find("Gun Aimable/ejection").transform.localEulerAngles = new Vector3(0f, 316.5237f, 0f);
+
+                UsableOptic day_optic = btr_gun.Find("Gun Aimable/gunner sight/GPS").GetComponent<UsableOptic>();
+                day_optic.slot.DefaultFov = 6f;
+
+                weapon_info.Name = "30mm gun 2A72";
+                weapon.BaseDeviationAngle = 0.17f;
+                weapon._cycleTimeSeconds = 0.16f;
+                weapon.Feed._totalCycleTime = 0.16f;
+                weapon.WeaponSound.SingleShotByDefault = true;
+                weapon.WeaponSound.SingleShotMode = true;
+                weapon.WeaponSound.SingleShotEventPaths = new string[] { "actually_2a72" };
+                weapon._impulseLocation = btr_gun.Find("gun_recoil");
+                weapon.Impulse = 35f;
+                weapon._maxBurstSeconds = 1.1f;
+                weapon.FCS.RegisteredRangeLimits = new Vector2(0f, 4000f);
+                weapon.FCS._originalRangeLimits = new Vector2(0f, 4000f);
+
+                day_optic.FCS = weapon.FCS;
+                weapon.FCS.RegisterOptic(day_optic);
+                UpdateVerticalRangeScale uvrs = day_optic.gameObject.AddComponent<UpdateVerticalRangeScale>();
+                uvrs.reticle = day_optic.reticleMesh;
+                uvrs.fcs = weapon.FCS;
+
+                GameObject nvs = GameObject.Instantiate(m60a1_nvs, day_optic.transform);
+                nvs.SetActive(true);
+
+                SharedNightSight night_sight = day_optic.gameObject.AddComponent<SharedNightSight>();
+                night_sight.nvs = nvs;
+
+                vic._nightVisionType = NightVisionType.Intensifier;
+
+                day_optic.slot.VibrationBlurScale = 0.2f;
+                day_optic.slot.VibrationShakeMultiplier = 0.5f;
+
+                btr_gun.Find("Gun Aimable/gunner sight/GPS/Quad").gameObject.SetActive(false);
+
+                AmmoClipCodexScriptable ap = use_3ubr8.Value ? Ammo_30mm.clip_codex_3ubr8 : Ammo_30mm.clip_codex_3ubr6;
+                AmmoClipCodexScriptable he = use_3uof8.Value ? Ammo_30mm.clip_codex_3uof8 : Ammo_30mm.clip_codex_3uor6;
+
+                feed.AmmoTypeInBreech = null;
+                feed.ReadyRack.ClipTypes = new AmmoType.AmmoClip[] { ap.ClipType, he.ClipType };
+                feed.ReadyRack._initialClipCounts = new int[] { 1, 1 };
+                feed.DualFeed = true;
+                feed.ReadyRack.Awake();
+                feed.Start();
+                feed.HumanLoaded = false;
+
+                if (casing == null)
+                {
+                    CasingFix.definitely_a_prefab = true;
+                    feed.RoundCycleStages[0].EjectedPrefab.GetComponent<DestroyInSeconds>().enabled = false;
+                    casing = GameObject.Instantiate(feed.RoundCycleStages[0].EjectedPrefab);
+                    casing.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                    casing.transform.localScale = new Vector3(2f, 2f, 2f);
+                    casing.GetComponent<Rigidbody>().useGravity = false;
+                    CasingFix fix = casing.AddComponent<CasingFix>();
+                    feed.RoundCycleStages[0].EjectedPrefab.GetComponent<DestroyInSeconds>().enabled = true;
+                }
+
+                feed.RoundCycleStages[0].EjectedPrefab = casing;
+
+                day_optic.reticleMesh.smoothTime = 0.1f;
+                day_optic.reticleMesh.reticleSO = reticleSO;
+                day_optic.reticleMesh.reticle = reticle_cached;
+                day_optic.reticleMesh.SMR = null;
+                day_optic.reticleMesh.Load();
+            }
+
+            if (stab.Value)
+            {
+                weapon.FCS.CurrentStabMode = StabilizationMode.Vector;
+                weapon.FCS.StabsActive = true;
+
+                for (int i = 0; i <= 1; i++)
+                {
+                    vic.AimablePlatforms[i]._stabMode = StabilizationMode.Vector;
+                    vic.AimablePlatforms[i].StabilizerActive = true;
+                    vic.AimablePlatforms[i].Stabilized = true;
+                }
+            }
+        }
+
         public static IEnumerator Convert(GameState _)
         {
             foreach (Vehicle vic in Mod.vics)
             {
-                GameObject vic_go = vic.gameObject;
-
-                if (vic == null) continue;
-                if (!vic.UniqueName.Contains("BTR60PB")) continue;
-                if (vic_go.GetComponent<AlreadyConverted>() != null) continue;
-
-                vic_go.AddComponent<AlreadyConverted>();
-
-                WeaponSystemInfo weapon_info = vic.WeaponsManager.Weapons[0];
-                WeaponSystem weapon = weapon_info.Weapon;
-                AmmoFeed feed = weapon.Feed;
-
-                if (autocannon.Value)
-                {
-                    vic._friendlyName = "BTR-60A";
-                    vic.GetComponent<Rigidbody>().mass += 1500f;
-
-                    SkinnedMeshRenderer mesh_rend = vic.transform.Find("btr60_rig/lp_hull002").GetComponent<SkinnedMeshRenderer>();
-                    Matrix4x4[] bindposes = mesh_rend.sharedMesh.bindposes;
-                    bindposes[3] = Matrix4x4.zero;
-                    bindposes[4] = Matrix4x4.zero;
-                    bindposes[5] = Matrix4x4.zero;
-                    bindposes[6] = Matrix4x4.zero;
-                    mesh_rend.sharedMesh.bindposes = bindposes;
-
-                    if (vic.transform.Find("btr60_rig/HULL/TURRET/Object266"))
-                        vic.transform.Find("btr60_rig/HULL/TURRET/Object266").gameObject.SetActive(false);
-                    vic.transform.Find("btr60_rig/HULL/TURRET/tyre_on_head").gameObject.SetActive(false);
-                    vic.transform.Find("btr60_rig/HULL/commander scope").transform.localScale = Vector3.zero;
-                    vic.transform.Find("transforms/commander head").transform.localPosition = new Vector3(0.355f, 2.5692f, 1.933f);
-
-                    Transform btr_gun = vic.transform.Find("btr60_rig/HULL/TURRET/GUN");
-
-                    GameObject full_turret = GameObject.Instantiate(btr60a_turret_complete);
-                    GameObject turret = full_turret.transform.Find("BTR_80_B").gameObject;
-                    GameObject gun = full_turret.transform.Find("BTR_80_C").gameObject;
-                    LateFollow turret_late_follow = vic.transform.Find("btr60_rig/HULL/TURRET").GetComponent<LateFollowTarget>()._lateFollowers[0];
-
-                    turret_late_follow.transform.Find("turret_sides_7mm").gameObject.SetActive(false);
-                    btr_gun.Find("MG_KPVT-1_Breach").gameObject.SetActive(false);
-
-                    Reparent turret_reparent = full_turret.AddComponent<Reparent>();
-                    turret_reparent.NewParent = turret_late_follow.transform;
-                    turret_reparent.Awake();
-                    full_turret.transform.localPosition = new Vector3(-0.0709f, 0.97f, 0.2436f);
-                    full_turret.transform.localEulerAngles = Vector3.zero;
-                    turret.transform.localEulerAngles = new Vector3(270f, 0f, 0f);
-
-                    Reparent gun_reparent = gun.AddComponent<Reparent>();
-                    gun_reparent.NewParent = btr_gun.GetComponent<LateFollowTarget>()._lateFollowers[0].transform;
-                    gun_reparent.Awake();
-                    gun.transform.localPosition = new Vector3(-0.0809f, 2.6379f, 1.0495f);
-                    gun.transform.localEulerAngles = new Vector3(270f, 0f, 0f);
-
-                    // pivot point gets all messed up 
-                    btr_gun.localPosition = new Vector3(-0.0181f, 0.1099f, -0.6041f);
-                    btr_gun.Find("Gun Aimable/gunner sight").transform.localPosition = new Vector3(-0.2186f, 2.3638f, 2.0156f);
-                    btr_gun.Find("gun_recoil/14.5mm Machine Gun KPVT").transform.localPosition = new Vector3(0.0151f, 0.2184f, 1.8515f);
-                    btr_gun.Find("gun_recoil/14.5mm Machine Gun KPVT/KPVT Muzzle Flash").Find("Gunsmoke Booster").gameObject.SetActive(false);
-                    btr_gun.Find("pkt/7.62mm Machine Gun PKT").transform.localPosition = new Vector3(0.3045f, 0.3216f, 0.5704f);
-                    btr_gun.Find("Gun Aimable/ejection").transform.localPosition = new Vector3(-0.1397f, 2.6567f, 1.3654f);
-                    btr_gun.Find("Gun Aimable/ejection").transform.localEulerAngles = new Vector3(0f, 316.5237f, 0f);
-
-                    UsableOptic day_optic = btr_gun.Find("Gun Aimable/gunner sight/GPS").GetComponent<UsableOptic>();
-                    day_optic.slot.DefaultFov = 6f;
-
-                    weapon_info.Name = "30mm gun 2A72";
-                    weapon.BaseDeviationAngle = 0.17f;
-                    weapon._cycleTimeSeconds = 0.13f;
-                    weapon.Feed._totalCycleTime = 0.13f;
-                    weapon.WeaponSound.SingleShotByDefault = true;
-                    weapon.WeaponSound.SingleShotMode = true;
-                    weapon.WeaponSound.SingleShotEventPaths = new string[] { "event:/Weapons/autocannon_2a42_single_actually_2a72" };
-                    weapon._impulseLocation = btr_gun.Find("gun_recoil");
-                    weapon.Impulse = 35f;
-                    weapon.FCS.RegisteredRangeLimits = new Vector2(0f, 4000f);
-                    weapon.FCS._originalRangeLimits = new Vector2(0f, 4000f);
-
-                    day_optic.FCS = weapon.FCS;
-                    weapon.FCS.RegisterOptic(day_optic);
-                    UpdateVerticalRangeScale uvrs = day_optic.gameObject.AddComponent<UpdateVerticalRangeScale>();
-                    uvrs.reticle = day_optic.reticleMesh;
-                    uvrs.fcs = weapon.FCS;
-
-                    GameObject nvs = GameObject.Instantiate(m60a1_nvs, day_optic.transform);
-                    nvs.SetActive(true);
-
-                    SharedNightSight night_sight = day_optic.gameObject.AddComponent<SharedNightSight>();
-                    night_sight.nvs = nvs;
-
-                    vic._nightVisionType = NightVisionType.Intensifier;
-
-                    day_optic.slot.VibrationBlurScale = 0.2f;
-                    day_optic.slot.VibrationShakeMultiplier = 0.5f;
-
-                    btr_gun.Find("Gun Aimable/gunner sight/GPS/Quad").gameObject.SetActive(false);
-
-                    AmmoClipCodexScriptable ap = use_3ubr8.Value ? Ammo_30mm.clip_codex_3ubr8 : Ammo_30mm.clip_codex_3ubr6;
-                    AmmoClipCodexScriptable he = use_3uof8.Value ? Ammo_30mm.clip_codex_3uof8 : Ammo_30mm.clip_codex_3uor6;
-
-                    feed.AmmoTypeInBreech = null;
-                    feed.ReadyRack.ClipTypes = new AmmoType.AmmoClip[] { ap.ClipType, he.ClipType };
-                    feed.ReadyRack._initialClipCounts = new int[] { 1, 1 };
-                    feed.DualFeed = true;
-                    feed.ReadyRack.Awake();
-                    feed.Start();
-                    feed.HumanLoaded = false;
-
-                    if (casing == null)
-                    {
-                        CasingFix.definitely_a_prefab = true;
-                        feed.RoundCycleStages[0].EjectedPrefab.GetComponent<DestroyInSeconds>().enabled = false;
-                        casing = GameObject.Instantiate(feed.RoundCycleStages[0].EjectedPrefab);
-                        casing.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                        casing.transform.localScale = new Vector3(2f, 2f, 2f);
-                        casing.GetComponent<Rigidbody>().useGravity = false;
-                        CasingFix fix = casing.AddComponent<CasingFix>();
-                        feed.RoundCycleStages[0].EjectedPrefab.GetComponent<DestroyInSeconds>().enabled = true;
-                    }
-
-                    feed.RoundCycleStages[0].EjectedPrefab = casing;
-
-                    day_optic.reticleMesh.smoothTime = 0.1f;
-                    day_optic.reticleMesh.reticleSO = reticleSO;
-                    day_optic.reticleMesh.reticle = reticle_cached;
-                    day_optic.reticleMesh.SMR = null;
-                    day_optic.reticleMesh.Load();
-                }
-
-                if (stab.Value)
-                {
-                    weapon.FCS.CurrentStabMode = StabilizationMode.Vector;
-                    weapon.FCS.StabsActive = true;
-
-                    for (int i = 0; i <= 1; i++)
-                    {
-                        vic.AimablePlatforms[i]._stabMode = StabilizationMode.Vector;
-                        vic.AimablePlatforms[i].StabilizerActive = true;
-                        vic.AimablePlatforms[i].Stabilized = true;
-                    }
-                }
+                HandleConversion(vic);
             }
 
             yield break;
@@ -425,7 +489,7 @@ namespace PactIncreasedLethality
         {
             if (!btr60_patch.Value) return;
 
-            StateController.RunOrDefer(GameState.GameReady, new GameStateEventHandler(Convert), GameStatePriority.Medium);
+            StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(Convert), GameStatePriority.Medium);
         }
     }
 }

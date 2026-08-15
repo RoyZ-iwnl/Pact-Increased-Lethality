@@ -12,21 +12,21 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 using UnityEngine.UI;
+using ModUtil;
 
 namespace PactIncreasedLethality
 {
     public class SuperFCS : Module
     {
-        static GameObject range_readout;
+        static GameObject range_canvas_prefab;
         static GameObject thermal_canvas;
 
         static GameObject sosna_monitor;
+        static GameObject sosna_tracking_gates;
         static GameObject vesna_monitor;
 
         static ReticleSO reticleSO_sosna;
         static ReticleMesh.CachedReticle reticle_cached_sosna;
-
-        private static bool assets_loaded = false;
 
         public class ThermalMonitor : MonoBehaviour {
             private Transform wfov_ui;
@@ -66,7 +66,6 @@ namespace PactIncreasedLethality
                 pk = crosshair_ui.Find("AMMO (COAX)");
                 range = crosshair_ui.Find("RANGE").GetComponentInChildren<TextMeshProUGUI>();
                 stab = wfov_ui.Find("STAB");
-                tracking_gates = crosshair_ui.Find("TRACKING GATE HOLDER");
 
                 UsableOptic night_optic = GetComponentInParent<UsableOptic>();
                 fcs = night_optic.FCS;
@@ -263,32 +262,28 @@ namespace PactIncreasedLethality
             day_optic.reticleMesh.Load();
 
             GameObject rangebox = GameObject.Instantiate(thermal_canvas);
-            rangebox.GetComponent<Reparent>().NewParent = day_optic.transform;
-            rangebox.GetComponent<Reparent>().Awake();
+            rangebox.transform.SetParent(day_optic.transform);
             rangebox.SetActive(true);
-            rangebox.transform.localPosition = new Vector3(0f, 0f, 0f);
-            rangebox.transform.GetChild(0).transform.localPosition = new Vector3(-2.1709f, -350.7738f, 0f);
 
-            GameObject range = GameObject.Instantiate(range_readout);
-            range.GetComponent<Reparent>().NewParent = rangebox.transform;
-            range.GetComponent<Reparent>().Awake();
-            range.SetActive(true);
-            range.transform.localPosition = new Vector3(0f, 0f, 0f);
-            range.transform.GetChild(1).transform.localPosition = new Vector3(-10f, -285.2727f, 0f);
-            day_optic.RangeText = range.GetComponentInChildren<TMP_Text>();
-            range.GetComponentInChildren<TMP_Text>().outlineWidth = 1f;
+            GameObject range_canvas = GameObject.Instantiate(range_canvas_prefab);
+            range_canvas.transform.SetParent(rangebox.transform);
+            range_canvas.SetActive(true);
+            range_canvas.transform.localPosition = new Vector3(0f, 0f, 0f);
+            range_canvas.transform.Find("range text (TMP)").localPosition = new Vector3(-10f, -285.2727f, 0f);
+            day_optic.RangeText = range_canvas.GetComponentInChildren<TMP_Text>();
+            range_canvas.GetComponentInChildren<TMP_Text>().outlineWidth = 1f;
             day_optic.RangeTextPrefix = "<mspace=0.5em>";
             day_optic.RangeTextDivideBy = 1;
             day_optic.RangeTextQuantize = 1;
 
-            Transform ready_backing = range.transform.GetChild(0);
+            Transform ready_backing = range_canvas.transform.GetChild(0);
             Component.DestroyImmediate(ready_backing.gameObject.GetComponent<Image>());
             Image image = ready_backing.gameObject.AddComponent<Image>();
             image.color = new Color(0.15f, 0f, 0f);
             ready_backing.localScale = new Vector3(5f, 0.3f, 1f);
             ready_backing.localPosition = new Vector3(-2.1511f, -256.7888f, -0.0001f);
 
-            GameObject ready = GameObject.Instantiate(ready_backing.gameObject, range.transform);
+            GameObject ready = GameObject.Instantiate(ready_backing.gameObject, range_canvas.transform);
             Image image2 = ready.gameObject.GetComponent<Image>();
             image2.color = new Color(1f, 0f, 0f);
 
@@ -316,14 +311,16 @@ namespace PactIncreasedLethality
             night_optic.slot.FLIRFilterMode = FilterMode.Point;
 
             GameObject monitor_canvas = GameObject.Instantiate(vesna ? vesna_monitor : sosna_monitor, night_optic.transform);
+            Transform tracking_gates = GameObject.Instantiate(sosna_tracking_gates, night_optic.transform).transform.Find("TRACKING GATE HOLDER");
             ThermalMonitor monitor = monitor_canvas.AddComponent<ThermalMonitor>();
+            monitor.tracking_gates = tracking_gates;
 
             GameObject wfov_reticle = monitor_canvas.transform.Find("WFOV").gameObject;
             GameObject wfov_elements = monitor_canvas.transform.Find("WFOV UI").gameObject;
             GameObject crosshair_reticle = monitor_canvas.transform.Find("CROSSHAIR HOLDER").gameObject;
             GameObject crosshair_elements = monitor_canvas.transform.Find("CROSSHAIR UI").gameObject;
 
-            List<GameObject> narrow_fov_items = new List<GameObject>() { crosshair_elements, crosshair_reticle };
+            List<GameObject> narrow_fov_items = new List<GameObject>() { crosshair_elements, crosshair_reticle, tracking_gates.parent.gameObject };
             if (vesna) 
             {
                 narrow_fov_items.Add(monitor_canvas.transform.Find("VESNA CROSSHAIRS").gameObject);
@@ -355,7 +352,7 @@ namespace PactIncreasedLethality
             LockOnLead s = fcs.gameObject.AddComponent<LockOnLead>();
             s.fcs = fcs;
             s.guidance_computer = mgu;
-            s.tracking_gates = crosshair_elements.transform.Find("TRACKING GATE HOLDER").GetComponent<RectTransform>();
+            s.tracking_gates = tracking_gates.GetComponent<RectTransform>();
 
             fcs.RegisteredRangeLimits = new Vector2(50f, 4000f);
             fcs._originalRangeLimits = new Vector2(50f, 4000f);
@@ -474,28 +471,26 @@ namespace PactIncreasedLethality
 
         public override void UnloadDynamicAssets()
         {
-            GameObject.DestroyImmediate(range_readout);
+            GameObject.DestroyImmediate(range_canvas_prefab);
             GameObject.DestroyImmediate(thermal_canvas);
             GameObject.DestroyImmediate(reticleSO_sosna);
         }
 
         public override void LoadDynamicAssets()
         {
-            range_readout = GameObject.Instantiate(SharedAssets.m1ip_range_canvas);
-            GameObject.Destroy(range_readout.transform.GetChild(2).gameObject);
-            range_readout.AddComponent<Reparent>();
-            range_readout.SetActive(false);
-            range_readout.hideFlags = HideFlags.DontUnloadUnusedAsset;
-            range_readout.name = "t72 range canvas";
+            range_canvas_prefab = GameObject.Instantiate(SharedAssets.m1ip_range_canvas);
+            GameObject.Destroy(range_canvas_prefab.transform.GetChild(2).gameObject);
+            range_canvas_prefab.SetActive(false);
+            range_canvas_prefab.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            range_canvas_prefab.name = "t72 range canvas";
 
-            TextMeshProUGUI text = range_readout.GetComponentInChildren<TextMeshProUGUI>();
+            TextMeshProUGUI text = range_canvas_prefab.GetComponentInChildren<TextMeshProUGUI>();
             text.color = new Color(255f, 0f, 0f);
             text.faceColor = new Color(255f, 0f, 0f);
             text.outlineColor = new Color(100f, 0f, 0f, 0.5f);
 
             thermal_canvas = GameObject.Instantiate(SharedAssets.m2_bradley_canvas);
-            GameObject.Destroy(thermal_canvas.transform.GetChild(2).gameObject);
-            thermal_canvas.AddComponent<Reparent>();
+            GameObject.DestroyImmediate(thermal_canvas.transform.Find("HUD elements").gameObject);
             thermal_canvas.SetActive(false);
             thermal_canvas.hideFlags = HideFlags.DontUnloadUnusedAsset;
             thermal_canvas.name = "t72 thermal canvas";
@@ -508,6 +503,9 @@ namespace PactIncreasedLethality
             AssetBundle sosna_bundle = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/PIL", "sosna_monitor"));
             sosna_monitor = sosna_bundle.LoadAsset<GameObject>("SOSNA MONITOR CANVAS.prefab");
             sosna_monitor.hideFlags = HideFlags.DontUnloadUnusedAsset;
+
+            sosna_tracking_gates = sosna_bundle.LoadAsset<GameObject>("SOSNA TRACKING GATES");
+            sosna_tracking_gates.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
             AssetBundle vesna_bundle = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/PIL", "vesna_monitor"));
             vesna_monitor = vesna_bundle.LoadAsset<GameObject>("VESNA K CANVAS.prefab");
