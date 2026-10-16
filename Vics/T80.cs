@@ -82,7 +82,7 @@ namespace PactIncreasedLethality
 
             t80_random_ammo = cfg.CreateEntry<bool>("Random AP Round (T-80B)", false);
             t80_random_ammo_pool = cfg.CreateEntry<List<string>>("Random AP Round Pool (T-80B)", random_ammo_pool);
-            t80_random_ammo_pool.Comment = "3BM26, 3BM32, 3BM42, 3BM46, 3B60";
+            t80_random_ammo_pool.Comment = "3BM26, 3BM32, 3BM42, 3BM46, 3BM60";
 
             t80_atgm_type = cfg.CreateEntry<string>("GLATGM (T-80B)", "9M119");
             t80_atgm_type.Comment = "9M112M, 9M119, 9M119M1";
@@ -128,7 +128,7 @@ namespace PactIncreasedLethality
             if (zoom_snapper.Value && !super_fcs_t80.Value)
                 day_optic.gameObject.AddComponent<DigitalZoomSnapper>();
 
-            int rand = UnityEngine.Random.Range(0, Ammo_125mm.ap.Count);
+            int rand = UnityEngine.Random.Range(0, t80_random_ammo_pool.Value.Count);
             string ammo_str = t80_random_ammo.Value ? t80_random_ammo_pool.Value.ElementAt(rand) : t80_ammo_type.Value;
 
             vic.AimablePlatforms[1].transform.Find("optic cover parent").gameObject.SetActive(false);
@@ -220,7 +220,7 @@ namespace PactIncreasedLethality
             {
                 Transform turret_rend = turret.Find("turret");
                 turret_rend.GetComponent<MeshFilter>().sharedMesh = t80bv_turret;
-                turret_rend.GetComponent<MeshRenderer>().materials[1].color = new Color(0, 0, 0, 0);
+                turret_rend.GetComponent<MeshRenderer>().sharedMaterials[1].color = new Color(0, 0, 0, 0);
 
                 turret.Find("turret numbers").gameObject.SetActive(false);
                 vic.transform.Find("T80B_stowage/towropes_front").gameObject.SetActive(false);
@@ -242,13 +242,13 @@ namespace PactIncreasedLethality
                 k1_full.transform.Find("HULL MOUNTING FRAMES").SetParent(hull_follow);
 
                 Material[] smokes_mat = new Material[1];
-                smokes_mat[0] = vic.transform.Find("T80_mesh/skirts").GetComponent<MeshRenderer>().materials[0];
-                k1_full.transform.Find("SMOKE TUBES 1").GetComponent<MeshRenderer>().materials = smokes_mat;
-                k1_full.transform.Find("SMOKE TUBES 2").GetComponent<MeshRenderer>().materials = smokes_mat;
+                smokes_mat[0] = vic.transform.Find("T80_mesh/skirts").GetComponent<MeshRenderer>().sharedMaterials[0];
+                k1_full.transform.Find("SMOKE TUBES 1").GetComponent<MeshRenderer>().sharedMaterials = smokes_mat;
+                k1_full.transform.Find("SMOKE TUBES 2").GetComponent<MeshRenderer>().sharedMaterials = smokes_mat;
 
                 foreach (Transform smoke_cap in k1_full.transform.Find("SMOKES"))
                 {
-                    smoke_cap.GetComponent<MeshRenderer>().materials = smokes_mat;
+                    smoke_cap.GetComponent<MeshRenderer>().sharedMaterials = smokes_mat;
                 }
 
                 VehicleSmokeManager smoke_manager = vic.transform.Find("T80 -Smoke Launcher System").GetComponent<VehicleSmokeManager>();
@@ -275,7 +275,7 @@ namespace PactIncreasedLethality
 
                 Transform turret_rend = turret.Find("turret");
                 turret_rend.GetComponent<MeshFilter>().sharedMesh = turret_cleaned_mesh;
-                turret_rend.GetComponent<MeshRenderer>().materials[1].color = new Color(0, 0, 0, 0);
+                turret_rend.GetComponent<MeshRenderer>().sharedMaterials[1].color = new Color(0, 0, 0, 0);
 
                 turret.Find("turret numbers").gameObject.SetActive(false);
                 vic.transform.Find("T80B_stowage/towropes_front").gameObject.SetActive(false);
@@ -307,15 +307,15 @@ namespace PactIncreasedLethality
                 front_flaps.transform.localEulerAngles = new Vector3(0f, 270f, 0f);
                 front_flaps.transform.SetParent(hull_follow);
 
-                Material[] front_flaps_mat = front_flaps.GetComponent<MeshRenderer>().materials;
-                front_flaps_mat[0] = skirts_rend.GetComponent<MeshRenderer>().materials[0];
-                front_flaps.GetComponent<MeshRenderer>().materials = front_flaps_mat;
+                Material[] front_flaps_mat = front_flaps.GetComponent<MeshRenderer>().sharedMaterials;
+                front_flaps_mat[0] = skirts_rend.GetComponent<MeshRenderer>().sharedMaterials[0];
+                front_flaps.GetComponent<MeshRenderer>().sharedMaterials = front_flaps_mat;
 
                 foreach (Transform t in k5_turret.transform.Find("t80u_smokes"))
                 {
-                    Material[] smokes_mat = t.GetComponent<MeshRenderer>().materials;
-                    smokes_mat[0] = skirts_rend.GetComponent<MeshRenderer>().materials[0];
-                    t.GetComponent<MeshRenderer>().materials = smokes_mat;
+                    Material[] smokes_mat = t.GetComponent<MeshRenderer>().sharedMaterials;
+                    smokes_mat[0] = skirts_rend.GetComponent<MeshRenderer>().sharedMaterials[0];
+                    t.GetComponent<MeshRenderer>().sharedMaterials = smokes_mat;
                 }
 
                 VehicleSmokeManager smoke_manager = vic.transform.Find("T80 -Smoke Launcher System").GetComponent<VehicleSmokeManager>();

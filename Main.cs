@@ -14,7 +14,7 @@ using PactIncreasedLethality;
 using ModUtil;
 using ActiveProtectionSystem;
 
-[assembly: MelonInfo(typeof(Mod), "Pact Increased Lethality", "2.1.7B", "ATLAS")]
+[assembly: MelonInfo(typeof(Mod), "Pact Increased Lethality", "2.1.7F", "ATLAS")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PactIncreasedLethality
@@ -40,9 +40,6 @@ namespace PactIncreasedLethality
             player_manager = game_manager.GetComponent<PlayerInput>();
             camera_manager = game_manager.GetComponent<CameraManager>();
             vics = GameObject.FindObjectsByType<Vehicle>(FindObjectsSortMode.None);
-
-            module_manager.LoadAllDynamicAssets();
-            Ammo_125mm.CreateCompositeOptimizations();
 
             yield break;
         }
@@ -103,27 +100,26 @@ namespace PactIncreasedLethality
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
-            module_manager.UnloadAllDynamicAssets();
-
-            if (sceneName == "MainMenu2_Scene" || sceneName == "MainMenu2-1_Scene" || sceneName == "t64_menu")
+            if (Util.MenuScreens.Contains(sceneName))
             {
                 module_manager.LoadAllStaticAssets();
-                AssetUtil.ReleaseVanillaAssets();
                 APSLauncher.Init();
             }
 
-            //TODO why is this needed?        
-            if (sceneName == "GT01_Beginers_Luck") 
-            {
-                AssetUtil.LoadVanillaVehicle("T72M");
-            }
-
-            if (Util.menu_screens.Contains(sceneName)) return;
+            if (Util.MenuScreensWithLoader.Contains(sceneName)) return;
 
             valid_scene_count++;
+
+            if (valid_scene_count == 1)
+            {
+                module_manager.UnloadAllDynamicAssets();
+            }
+
             if (valid_scene_count == 2)
             {
-                StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(OnPlayerReady), GameStatePriority.Medium);
+                module_manager.LoadAllDynamicAssets();
+                StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(OnPlayerReady), GameStatePriority.Highest);
+                StateController.RunOrDefer(GameState.GameReady, new GameStateEventHandler(Ammo_125mm.CreateCompositeOptimizationsDeferred), GameStatePriority.Low);
 
                 PactEra.Init();
                 Armour.Init();
@@ -138,7 +134,6 @@ namespace PactIncreasedLethality
                 BMP1.Init();
                 BMP2.Init();
                 BTR60.Init();
-                //BMP3.Init();
 
                 valid_scene_count = 0;
             }
